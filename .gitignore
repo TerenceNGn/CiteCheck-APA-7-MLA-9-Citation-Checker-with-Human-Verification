@@ -16,3 +16,13 @@ desktop.ini
 
 # Node
 node_modules/
+
+# Coursework deliverables that belong on Moodle, not in the code repository
+*.mp4
+*.mov
+*.avi
+*.docx
+*.doc
+*.pdf
+*.zip
+AILT9019_*

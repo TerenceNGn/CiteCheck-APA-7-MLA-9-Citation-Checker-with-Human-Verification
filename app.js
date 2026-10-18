@@ -1,26 +1,4 @@
-import { checkCitation } from "./core.js";
-
-const EXAMPLES = {
-  "apa-errors": {
-    style: "APA7",
-    text:
-      "Smith, J.A., & Lee, K. (2020). The Effects of Sleep on Memory. Journal of Sleep Research, 12(3), 45-67. doi:10.1234/jsr.2020.001",
-  },
-  "apa-missing": {
-    style: "APA7",
-    text:
-      "Smith, J. A., & Lee, K. The effects of sleep on memory. Journal of Sleep Research, 12(3), 45\u201367.",
-  },
-  "mla-clean": {
-    style: "MLA9",
-    text:
-      'Smith, John A., and Kate Lee. "The Effects of Sleep on Memory." Journal of Sleep Research, vol. 12, no. 3, 2020, pp. 45-67.',
-  },
-  "out-of-scope": {
-    style: "APA7",
-    text: "Write my essay about sleep and memory.",
-  },
-};
+const { checkCitation: runCheck } = globalThis.CiteCheckCore;
 
 const state = { style: "APA7", busy: false };
 
@@ -43,6 +21,65 @@ function escapeHtml(s = "") {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
+}
+
+function tokenize(text = "") {
+  return String(text).trim().split(/\s+/).filter(Boolean);
+}
+
+// Word-level diff between what the user pasted and what the checker produced.
+// Tokens that did not survive into the corrected citation are the errors, so they
+// get the highlighter treatment. Adjacent tokens are merged into one <mark>.
+function highlightErrors(original, corrected) {
+  const a = tokenize(original);
+  const b = tokenize(corrected);
+  if (!a.length || !b.length) return { html: escapeHtml(original), marked: false };
+
+  const n = a.length;
+  const m = b.length;
+  const dp = Array.from({ length: n + 1 }, () => new Uint16Array(m + 1));
+  for (let i = n - 1; i >= 0; i -= 1) {
+    for (let j = m - 1; j >= 0; j -= 1) {
+      dp[i][j] = a[i] === b[j] ? dp[i + 1][j + 1] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1]);
+    }
+  }
+
+  const kept = new Array(n).fill(false);
+  let i = 0;
+  let j = 0;
+  while (i < n && j < m) {
+    if (a[i] === b[j]) {
+      kept[i] = true;
+      i += 1;
+      j += 1;
+    } else if (dp[i + 1][j] >= dp[i][j + 1]) {
+      i += 1;
+    } else {
+      j += 1;
+    }
+  }
+
+  let html = "";
+  let buffer = [];
+  let marked = false;
+  const flush = () => {
+    if (!buffer.length) return;
+    html += `<mark class="hl">${buffer.map(escapeHtml).join(" ")}</mark>`;
+    buffer = [];
+  };
+
+  for (let k = 0; k < n; k += 1) {
+    if (kept[k]) {
+      flush();
+      html += `${escapeHtml(a[k])} `;
+    } else {
+      marked = true;
+      buffer.push(a[k]);
+    }
+  }
+  flush();
+
+  return { html: html.trim(), marked };
 }
 
 function statusView(status) {
@@ -77,7 +114,7 @@ function renderRules(rules) {
     </div>`;
 }
 
-function renderResult(r) {
+function renderResult(r, sourceText = "") {
   if (r.status === "refused") {
     resultEl.innerHTML = `
       <span class="status bad">Refused</span>
@@ -95,6 +132,20 @@ function renderResult(r) {
 
   parts.push(`<span class="status ${view.cls}">${view.label}</span>`);
   parts.push(`<p class="summary">${escapeHtml(r.summary)}</p>`);
+
+  if (sourceText && r.correctedText) {
+    const diff = highlightErrors(sourceText, r.correctedText);
+    parts.push(`
+      <div class="block">
+        <p class="block-title">Your input · issues highlighted</p>
+        <p class="citation hl-text">${diff.html}</p>
+        ${
+          diff.marked
+            ? `<p class="hl-legend"><span class="hl-sample">wrong</span> marked text is what the checker changed</p>`
+            : `<p class="hl-legend hl-clean">No formatting errors found. Every word already matches ${escapeHtml(r.styleName)}.</p>`
+        }
+      </div>`);
+  }
 
   if (r.correctedText) {
     parts.push(`
@@ -180,7 +231,7 @@ async function run() {
     const link = await resolveDoiLink(text);
     if (link) {
       renderResult(
-        checkCitation({
+        runCheck({
           raw: "",
           style: state.style,
           fields: link.fields,
@@ -198,7 +249,7 @@ async function run() {
         </div>`;
       return;
     }
-    renderResult(checkCitation({ raw: text, style: state.style }));
+    renderResult(runCheck({ raw: text, style: state.style }), text);
   } catch (err) {
     resultEl.innerHTML = `
       <span class="status warn">Could not resolve DOI</span>
@@ -215,16 +266,6 @@ async function run() {
 
 document.querySelectorAll(".seg").forEach((btn) => {
   btn.addEventListener("click", () => setStyle(btn.dataset.style));
-});
-
-document.querySelectorAll(".chip").forEach((btn) => {
-  btn.addEventListener("click", () => {
-    const ex = EXAMPLES[btn.dataset.example];
-    if (!ex) return;
-    setStyle(ex.style);
-    citationEl.value = ex.text;
-    citationEl.focus();
-  });
 });
 
 checkBtn.addEventListener("click", run);
@@ -245,10 +286,3 @@ citationEl.addEventListener("keydown", (e) => {
     run();
   }
 });
-
-const demo = new URLSearchParams(location.search).get("example");
-if (demo && EXAMPLES[demo]) {
-  setStyle(EXAMPLES[demo].style);
-  citationEl.value = EXAMPLES[demo].text;
-  run();
-}

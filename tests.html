@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CiteCheck · test results</title>
+  <style>
+    :root {
+      --ink: #17324d;
+      --muted: #5b6b7c;
+      --line: #dfe6ee;
+      --bg: #f6f8fb;
+      --ok: #0f7a4d;
+      --ok-bg: #e7f6ee;
+      --bad: #b3261e;
+      --bad-bg: #fdeceb;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 32px 24px 48px;
+      background: var(--bg);
+      color: var(--ink);
+      font: 14px/1.55 "Segoe UI", system-ui, -apple-system, sans-serif;
+    }
+    main { max-width: 960px; margin: 0 auto; }
+    h1 { margin: 0 0 4px; font-size: 22px; letter-spacing: -0.01em; }
+    .sub { margin: 0 0 20px; color: var(--muted); }
+    .summary {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 18px;
+      margin-bottom: 18px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #fff;
+      font-size: 16px;
+      font-weight: 600;
+    }
+    .summary .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--muted); }
+    .summary.pass { color: var(--ok); border-color: #bfe3cf; background: var(--ok-bg); }
+    .summary.pass .dot { background: var(--ok); }
+    .summary.fail { color: var(--bad); border-color: #f2c3bf; background: var(--bad-bg); }
+    .summary.fail .dot { background: var(--bad); }
+    table { width: 100%; border-collapse: collapse; background: #fff; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+    th, td { padding: 10px 12px; text-align: left; vertical-align: top; border-bottom: 1px solid var(--line); }
+    th { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); background: #f0f4f9; }
+    tr:last-child td { border-bottom: 0; }
+    tr.fail td { background: #fff7f6; }
+    .tag { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; letter-spacing: 0.03em; }
+    .tag.pass { color: var(--ok); background: var(--ok-bg); }
+    .tag.fail { color: var(--bad); background: var(--bad-bg); }
+    code { font-family: Consolas, "Courier New", monospace; font-size: 12px; }
+    .detail { color: var(--bad); font-size: 12px; margin-top: 4px; }
+    .note { margin-top: 18px; color: var(--muted); font-size: 12px; }
+    a { color: #1b5fa8; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>CiteCheck · automated test results</h1>
+    <p class="sub">
+      Same eight cases as <code>node tests.mjs</code>, run in the browser against <code>core.js</code>.
+      <a href="index.html">Open the checker</a>
+    </p>
+
+    <div class="summary" id="summary"><span class="dot"></span><span id="summary-text">Running…</span></div>
+
+    <table>
+      <thead>
+        <tr><th style="width:28%">Test case</th><th style="width:12%">Result</th><th>Expected vs actual</th></tr>
+      </thead>
+      <tbody id="rows"></tbody>
+    </table>
+
+    <p class="note">
+      Expected values are fixed strings from the APA 7 / MLA 9 rule set, not values produced by the code.
+      A failing row shows the exact mismatch.
+    </p>
+  </main>
+
+  <script src="core.js"></script>
+  <script>
+    const { checkCitation: runCheck } = globalThis.CiteCheckCore;
+
+    function eq(actual, expected, label) {
+      if (actual !== expected) {
+        throw new Error(`${label}: expected ${JSON.stringify(expected)} but got ${JSON.stringify(actual)}`);
+      }
+    }
+
+    function deepEq(actual, expected, label) {
+      const a = JSON.stringify(actual);
+      const b = JSON.stringify(expected);
+      if (a !== b) throw new Error(`${label}: expected ${b} but got ${a}`);
+    }
+
+    const CASES = [
+      {
+        name: "APA: fixes author initials, title case, hyphen page range, doi prefix",
+        expected:
+          "corrected = Smith, J. A., & Lee, K. (2020). The effects of sleep on memory. Journal of Sleep Research, 12(3), 45\u201367. https://doi.org/10.1234/jsr.2020.001; status = needs_verification; fixed = APA-A1, APA-DOI1, APA-P1, APA-T1",
+        run() {
+          const r = runCheck({
+            style: "APA7",
+            raw:
+              "Smith, J.A., & Lee, K. (2020). The Effects of Sleep on Memory. Journal of Sleep Research, 12(3), 45-67. doi:10.1234/jsr.2020.001",
+          });
+          eq(
+            r.correctedText,
+            "Smith, J. A., & Lee, K. (2020). The effects of sleep on memory. Journal of Sleep Research, 12(3), 45\u201367. https://doi.org/10.1234/jsr.2020.001",
+            "corrected citation"
+          );
+          eq(r.status, "needs_verification", "status");
+          const ids = r.rules.filter((x) => x.result === "fixed").map((x) => x.id).sort();
+          deepEq(ids, ["APA-A1", "APA-DOI1", "APA-P1", "APA-T1"].sort(), "fixed rule IDs");
+          return r.correctedText;
+        },
+      },
+      {
+        name: "APA: missing year asks instead of inventing",
+        expected: 'status = incomplete; missing = year; corrected citation is empty (""), nothing invented',
+        run() {
+          const r = runCheck({
+            style: "APA7",
+            raw:
+              "Smith, J. A., & Lee, K. The effects of sleep on memory. Journal of Sleep Research, 12(3), 45\u201367.",
+          });
+          eq(r.status, "incomplete", "status");
+          deepEq(r.missing.map((m) => m.field), ["year"], "missing fields");
+          eq(r.correctedText, "", "corrected citation");
+          return `status = ${r.status}; missing = ${r.missing.map((m) => m.field).join(", ")}`;
+        },
+      },
+      {
+        name: "MLA: formats authors, quotation marks, labels and en dash",
+        expected:
+          'corrected = Smith, John A., and Kate Lee. "The Effects of Sleep on Memory." Journal of Sleep Research, vol. 12, no. 3, 2020, pp. 45\u201367.; status = corrected; MLA-N1 fixed',
+        run() {
+          const r = runCheck({
+            style: "MLA9",
+            raw:
+              'Smith, John A., and Kate Lee. "The Effects of Sleep on Memory." Journal of Sleep Research, vol. 12, no. 3, 2020, pp. 45-67.',
+          });
+          eq(
+            r.correctedText,
+            'Smith, John A., and Kate Lee. "The Effects of Sleep on Memory." Journal of Sleep Research, vol. 12, no. 3, 2020, pp. 45\u201367.',
+            "corrected citation"
+          );
+          eq(r.status, "corrected", "status");
+          eq(r.rules.find((x) => x.id === "MLA-N1").result, "fixed", "MLA-N1 result");
+          return r.correctedText;
+        },
+      },
+      {
+        name: "MLA: initials only triggers a request for the full first name",
+        expected: "status = incomplete; missing includes author_given",
+        run() {
+          const r = runCheck({
+            style: "MLA9",
+            raw:
+              'Smith, J. A. "The Effects of Sleep on Memory." Journal of Sleep Research, vol. 12, no. 3, 2020, pp. 45\u201367.',
+          });
+          eq(r.status, "incomplete", "status");
+          if (!r.missing.some((m) => m.field === "author_given")) {
+            throw new Error("expected a missing-field question for the full first name");
+          }
+          return `status = ${r.status}; missing = ${r.missing.map((m) => m.field).join(", ")}`;
+        },
+      },
+      {
+        name: "Refuses an unsupported style",
+        expected: "status = refused; code = unsupported_style",
+        run() {
+          const r = runCheck({ style: "Chicago", raw: "Smith, J. (2020). Title. Journal, 1(2), 3-4." });
+          eq(r.status, "refused", "status");
+          eq(r.refusal.code, "unsupported_style", "refusal code");
+          return `status = ${r.status}; code = ${r.refusal.code}`;
+        },
+      },
+      {
+        name: 'Refuses an out-of-scope request ("write my essay")',
+        expected: "status = refused; code = out_of_scope",
+        run() {
+          const r = runCheck({ style: "APA7", raw: "Write my essay about sleep and memory." });
+          eq(r.status, "refused", "status");
+          eq(r.refusal.code, "out_of_scope", "refusal code");
+          return `status = ${r.status}; code = ${r.refusal.code}`;
+        },
+      },
+      {
+        name: "Refuses a full reference list",
+        expected: "status = refused; code = scope_list",
+        run() {
+          const r = runCheck({ style: "APA7", raw: "A".repeat(601) });
+          eq(r.status, "refused", "status");
+          eq(r.refusal.code, "scope_list", "refusal code");
+          return `status = ${r.status}; code = ${r.refusal.code}`;
+        },
+      },
+      {
+        name: "Structured fields: builds a citation without inventing",
+        expected:
+          "corrected = Smith, J. A., & Lee, K. (2020). The effects of sleep on memory. Journal of Sleep Research, 12(3), 45\u201367. https://doi.org/10.1234/jsr.2020.001",
+        run() {
+          const r = runCheck({
+            style: "APA7",
+            raw: "",
+            fields: {
+              authors: [
+                { family: "Smith", given: "John A." },
+                { family: "Lee", given: "Kate" },
+              ],
+              year: "2020",
+              title: "The effects of sleep on memory",
+              container: "Journal of Sleep Research",
+              volume: "12",
+              issue: "3",
+              pages: "45\u201367",
+              doi: "10.1234/jsr.2020.001",
+            },
+          });
+          eq(
+            r.correctedText,
+            "Smith, J. A., & Lee, K. (2020). The effects of sleep on memory. Journal of Sleep Research, 12(3), 45\u201367. https://doi.org/10.1234/jsr.2020.001",
+            "corrected citation"
+          );
+          return r.correctedText;
+        },
+      },
+    ];
+
+    const rows = document.getElementById("rows");
+    let passed = 0;
+    let failed = 0;
+
+    for (const c of CASES) {
+      const tr = document.createElement("tr");
+      const nameTd = document.createElement("td");
+      nameTd.textContent = c.name;
+
+      const resultTd = document.createElement("td");
+      const bodyTd = document.createElement("td");
+
+      const expectedP = document.createElement("div");
+      expectedP.innerHTML = "<strong>Expected</strong><br /><code></code>";
+      expectedP.querySelector("code").textContent = c.expected;
+
+      const actualP = document.createElement("div");
+      actualP.style.marginTop = "6px";
+      actualP.innerHTML = "<strong>Actual</strong><br /><code></code>";
+      const actualCode = actualP.querySelector("code");
+
+      try {
+        const actual = c.run();
+        passed += 1;
+        resultTd.innerHTML = '<span class="tag pass">PASS</span>';
+        actualCode.textContent = actual;
+      } catch (err) {
+        failed += 1;
+        tr.className = "fail";
+        resultTd.innerHTML = '<span class="tag fail">FAIL</span>';
+        actualCode.textContent = "threw";
+        const detail = document.createElement("p");
+        detail.className = "detail";
+        detail.textContent = err.message;
+        actualP.appendChild(detail);
+      }
+
+      bodyTd.appendChild(expectedP);
+      bodyTd.appendChild(actualP);
+      tr.appendChild(nameTd);
+      tr.appendChild(resultTd);
+      tr.appendChild(bodyTd);
+      rows.appendChild(tr);
+    }
+
+    const summary = document.getElementById("summary");
+    summary.classList.add(failed ? "fail" : "pass");
+    document.getElementById("summary-text").textContent =
+      `${passed} passed, ${failed} failed  ·  ${CASES.length} test cases, expected results fixed in advance`;
+    document.title = `${passed} passed, ${failed} failed · CiteCheck tests`;
+  </script>
+</body>
+</html>

@@ -11,17 +11,16 @@ AILT9019 · AI Literacy II · group project
 
 ## Quick start
 
-No build step and no API key are needed. The app is plain HTML/CSS/JS.
+No build step, no API key, no server needed. The app is plain HTML/CSS/JS.
 
 | Option | How | Works for |
 |--------|-----|-----------|
+| Double-click `index.html` | Opens directly in any browser | Everyone — the fastest way |
 | GitHub Pages | Open the deployed URL (enable Pages in Settings → Pages → main branch) | Anyone, no install |
-| Windows local | Double-click `start-server.bat`, then open <http://localhost:8000> | Offline rule checking |
-| macOS/Linux local | `./start-server.sh`, then open <http://localhost:8000> | Offline rule checking |
-| Manual server | `python -m http.server 8000` in this folder, then open <http://localhost:8000> | Any OS |
+| Local server (optional) | `start-server.bat` (Windows) or `python -m http.server 8000`, then open <http://localhost:8000> | If you prefer serving it |
 
-> Note: opening `index.html` directly with a double-click will **not** work — browsers block
-> module scripts on `file://` pages. Use one of the options above.
+The DOI verification feature calls the Crossref API, so it needs an internet connection.
+Everything else (parsing, rule checks, refusals) works fully offline.
 
 ## Example input and expected output
 
@@ -56,11 +55,13 @@ Full demo cases, including the missing-field and refusal paths: see [`docs/TEST_
 ## How to check its result
 
 1. Open the app (see Quick start).
-2. Click an example chip, or paste your own citation, pick APA 7 / MLA 9, press **Check citation**.
-3. Compare the corrected citation with the input; every change is explained by a rule ID in
-   "Rules applied".
-4. Run the automated tests: `node tests.mjs` — expected: **8 passed, 0 failed**
-   ([`docs/TEST_EVIDENCE.md`](docs/TEST_EVIDENCE.md) lists every input, expected and actual result).
+2. Paste a citation (e.g. the example above), pick APA 7 / MLA 9, press **Check citation**.
+3. The result shows **your input with the erroneous parts highlighted in yellow**, the corrected
+   citation, and a rule ID explaining every change in "Rules applied".
+4. Run the automated tests — either way you should see **8 passed, 0 failed**
+   ([`docs/TEST_EVIDENCE.md`](docs/TEST_EVIDENCE.md) lists every input, expected and actual result):
+   - **In the browser (no install needed):** double-click `tests.html`
+   - **With Node.js:** `node tests.mjs`
 
 ## Known limitations
 
@@ -84,8 +85,9 @@ Honest scope — see [`docs/TEST_EVIDENCE.md`](docs/TEST_EVIDENCE.md) for the fu
 core.js                  parsing + rule engine (no DOM, testable)
 app.js                   UI logic, Crossref DOI resolution
 index.html / styles.css  single-page interface
-tests.mjs                automated tests (node tests.mjs)
-start-server.bat/.sh     one-click local server
+tests.html               run the 8 automated tests in any browser
+tests.mjs                same tests for Node (node tests.mjs)
+start-server.bat/.sh     optional local server
 docs/                    test evidence + style-rule mapping
 assets/                  screenshot
 ```

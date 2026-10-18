@@ -3,14 +3,18 @@
 Reproduce everything in this file from a clean clone:
 
 ```bash
+# Option A — no installation at all:
+#   double-click tests.html  → automated test results in the browser
+#   double-click index.html  → the checker itself
+
+# Option B — with Node.js:
 node tests.mjs                      # automated tests (8, all passing)
-python -m http.server 8000          # or double-click start-server.bat (Windows)
-# open http://localhost:8000
 ```
 
-## 1. Automated tests (`node tests.mjs`)
+## 1. Automated tests (`tests.html` in a browser, or `node tests.mjs`)
 
-Run on Node 18+. Actual result on 2026-10-18: **8 passed, 0 failed**.
+Actual result on 2026-10-18: **8 passed, 0 failed** (verified both in the browser via
+`tests.html` and on Node 22 via `node tests.mjs`).
 
 | # | Test | Input (summary) | Expected | Actual |
 |---|------|-----------------|----------|--------|
@@ -25,14 +29,16 @@ Run on Node 18+. Actual result on 2026-10-18: **8 passed, 0 failed**.
 
 ## 2. Manual browser checks (the demo path)
 
-Open the app, click each example chip, compare with the expected result.
+Open the app, paste each citation below (the same inputs as the automated tests), and compare
+with the expected result. The result panel shows the pasted text with every changed part
+highlighted in yellow, followed by the corrected citation.
 
-| Example | Expected | Evidence |
+| Input (paste as-is) | Expected | Evidence |
 |---------|----------|----------|
-| APA with errors | Status "Needs verification"; corrected citation shown; APA-A1, APA-T1, APA-P1, APA-DOI1 marked **fixed**; verification notice present | Screenshot `assets/screenshot.png`; re-runnable by opening the app |
-| APA missing year | Status "Input needed"; question "What year was the source published?"; no citation invented | Re-runnable by opening the app |
-| MLA 9 article | Status "Corrected"; pages rendered with an en dash | Re-runnable by opening the app |
-| Out of scope | Status "Refused"; scope message shown | Re-runnable by opening the app |
+| `Smith, J.A., & Lee, K. (2020). The Effects of Sleep on Memory. Journal of Sleep Research, 12(3), 45-67. doi:10.1234/jsr.2020.001` (APA 7) | Status "Needs verification"; corrected citation shown; APA-A1, APA-T1, APA-P1, APA-DOI1 marked **fixed**; `J.A.`, title words, `45-67.`, `doi:…` highlighted in the input | Screenshot `assets/screenshot.png`; re-runnable by opening the app |
+| `Smith, J. A., & Lee, K. The effects of sleep on memory. Journal of Sleep Research, 12(3), 45–67.` (APA 7) | Status "Input needed"; question "What year was the source published?"; no citation invented | Re-runnable by opening the app |
+| `Smith, John A., and Kate Lee. "The Effects of Sleep on Memory." Journal of Sleep Research, vol. 12, no. 3, 2020, pp. 45-67.` (MLA 9) | Status "Corrected"; pages rendered with an en dash | Re-runnable by opening the app |
+| `Write my essay about sleep and memory.` (APA 7) | Status "Refused"; scope message shown | Re-runnable by opening the app |
 
 A DOI link such as `https://doi.org/10.1109/5.771053` resolves through Crossref when online and is marked **Source check · verified**.
 

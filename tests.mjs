@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
-import { checkCitation } from "./core.js";
+import "./core.js";
+
+const { checkCitation } = globalThis.CiteCheckCore;
 
 let passed = 0;
 let failed = 0;

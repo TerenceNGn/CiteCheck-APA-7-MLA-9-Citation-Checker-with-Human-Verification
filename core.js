@@ -1,6 +1,6 @@
 const EN_DASH = "\u2013";
 
-export const STYLES = { APA7: "APA 7", MLA9: "MLA 9" };
+const STYLES = { APA7: "APA 7", MLA9: "MLA 9" };
 
 const RULES = {
   APA7: [
@@ -96,7 +96,7 @@ function parseAuthorsMLA(block) {
   return authors;
 }
 
-export function parseAPA(raw) {
+function parseAPA(raw) {
   let s = clean(raw);
   const doiInfo = splitDoi(s);
   s = clean(doiInfo.text);
@@ -150,7 +150,7 @@ export function parseAPA(raw) {
   return fields;
 }
 
-export function parseMLA(raw) {
+function parseMLA(raw) {
   let s = clean(raw);
   const doiInfo = splitDoi(s);
   s = clean(doiInfo.text);
@@ -352,7 +352,7 @@ function refuse(code, message) {
   return { status: "refused", refusal: { code, message }, rules: [], flags: [], missing: [] };
 }
 
-export function checkCitation({ raw = "", style = "APA7", fields = {}, doiVerified = false } = {}) {
+function checkCitation({ raw = "", style = "APA7", fields = {}, doiVerified = false } = {}) {
   const text = clean(raw);
   const lower = text.toLowerCase();
 
@@ -491,4 +491,12 @@ export function checkCitation({ raw = "", style = "APA7", fields = {}, doiVerifi
       doi: f.doi || "",
     },
   };
+}
+
+// Exposed on the global object so the same file works both as a plain browser
+// <script> (double-click index.html, no server needed) and as an ES module
+// imported by tests.mjs under Node.
+const CiteCheckCore = { STYLES, parseAPA, parseMLA, checkCitation };
+if (typeof globalThis !== "undefined") {
+  globalThis.CiteCheckCore = CiteCheckCore;
 }
