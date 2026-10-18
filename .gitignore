@@ -1,0 +1,18 @@
+# OS / editor noise
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Environment / secrets — never commit these
+.env
+.env.*
+*.key
+*.pem
+
+# Logs and temp files
+*.log
+*.tmp
+~$*
+
+# Node
+node_modules/

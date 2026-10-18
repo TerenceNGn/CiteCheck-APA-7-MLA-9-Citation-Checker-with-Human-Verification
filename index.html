@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CiteCheck · APA 7 and MLA 9 citation checker</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="site-header">
+    <div class="wrap header-inner">
+      <div class="brand">
+        <div class="mark" aria-hidden="true">CC</div>
+        <div>
+          <h1>CiteCheck</h1>
+          <p>APA 7 · MLA 9 citation checker</p>
+        </div>
+      </div>
+      <p class="scope-note">Checks formatting only. Never invents missing information.</p>
+    </div>
+  </header>
+
+  <main class="wrap layout">
+    <section class="card input-card" aria-labelledby="input-title">
+      <h2 id="input-title">Check one citation</h2>
+
+      <div class="field">
+        <span class="label" id="style-label">Citation style</span>
+        <div class="segmented" role="group" aria-labelledby="style-label">
+          <button type="button" class="seg is-active" data-style="APA7" aria-pressed="true">APA 7</button>
+          <button type="button" class="seg" data-style="MLA9" aria-pressed="false">MLA 9</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label class="label" for="citation">Citation or DOI link</label>
+        <textarea id="citation" rows="6" spellcheck="false"
+          placeholder="Paste one citation, or a DOI link such as https://doi.org/10.1234/example"></textarea>
+        <p class="hint">One reference at a time. DOI links are resolved through Crossref; other web links are not extracted yet.</p>
+      </div>
+
+      <div class="actions">
+        <button type="button" id="check" class="primary">Check citation</button>
+        <button type="button" id="clear" class="ghost">Clear</button>
+      </div>
+
+      <div class="examples">
+        <span class="label">Try an example</span>
+        <div class="chips">
+          <button type="button" class="chip" data-example="apa-errors">APA with errors</button>
+          <button type="button" class="chip" data-example="apa-missing">APA missing year</button>
+          <button type="button" class="chip" data-example="mla-clean">MLA 9 article</button>
+          <button type="button" class="chip" data-example="out-of-scope">Out of scope</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="card result-card" id="result" aria-live="polite" aria-atomic="false">
+      <div class="empty">
+        <h2>Result</h2>
+        <p>The corrected citation, the rules that were applied, and any field the tool refuses to guess will appear here.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap">
+      <p>CiteCheck checks APA 7 and MLA 9 formatting. It does not verify that a source exists, and it does not replace the official style guides or your instructor's judgement.</p>
+    </div>
+  </footer>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
