@@ -273,6 +273,39 @@ textarea:focus { outline: none; border-color: var(--navy); box-shadow: 0 0 0 3px
 
 .questions li { margin-bottom: 6px; font-size: 14px; }
 
+.list-item {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-bottom: 14px;
+  background: var(--surface);
+}
+
+.list-item-head {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  margin-bottom: 8px;
+}
+
+.list-input {
+  flex: 1;
+  font-size: 13px;
+  color: var(--ink-soft);
+  font-family: var(--serif);
+}
+
+.ai-flag {
+  border-left: 3px solid var(--amber);
+}
+
+.flag-list {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.flag-list li { margin-bottom: 4px; font-size: 13px; }
+
 .empty-state { color: var(--ink-faint); font-size: 14px; }
 
 @media (max-width: 880px) {

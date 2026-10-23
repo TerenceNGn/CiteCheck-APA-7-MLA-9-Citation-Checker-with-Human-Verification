@@ -2,6 +2,33 @@ const EN_DASH = "\u2013";
 
 const STYLES = { APA7: "APA 7", MLA9: "MLA 9" };
 
+const AI_SUSPICIOUS_JOURNAL_TOKENS = [
+  "journal of",
+  "international journal of",
+  "advances in",
+  "proceedings of",
+  "transactions on",
+  "reviews in",
+  "letters in",
+];
+
+function looksFabricatedJournal(container = "") {
+  const c = container.toLowerCase().trim();
+  if (!c) return false;
+  const tokenCount = AI_SUSPICIOUS_JOURNAL_TOKENS.some((t) => c.includes(t));
+  const tooGeneric = /^(journal|review|proceedings|advances|transactions)\b/i.test(c) && c.split(/\s+/).length <= 3;
+  return tokenCount || tooGeneric;
+}
+
+function aiLikelihood(f, status, doiVerified) {
+  const signals = [];
+  if (f.doi && !doiVerified) signals.push("unverified_doi");
+  if (f.container && looksFabricatedJournal(f.container)) signals.push("generic_journal");
+  if (!f.doi && !f.url && f.container) signals.push("no_source_link");
+  if (status === "needs_verification" && f.doi) signals.push("unverifiable_reference");
+  return signals;
+}
+
 const RULES = {
   APA7: [
     { id: "APA-A1", label: "Author names: Surname, Initials.; use & before the last author" },
@@ -470,6 +497,17 @@ function checkCitation({ raw = "", style = "APA7", fields = {}, doiVerified = fa
     ? `Corrected ${fixCount} formatting ${fixCount === 1 ? "issue" : "issues"}. The DOI still needs human verification.`
     : `Corrected ${fixCount} formatting ${fixCount === 1 ? "issue" : "issues"}.`;
 
+  const aiSignals = aiLikelihood(f, status, doiVerified);
+  const likelyAI = aiSignals.length > 0;
+  if (likelyAI) {
+    flags.push({
+      type: "ai_flag",
+      message:
+        "This reference shows signs of being AI-generated or fabricated (unverifiable DOI, generic journal name, or no source link). Treat it as \"needs human verification\" before submitting.",
+      signals: aiSignals,
+    });
+  }
+
   return {
     status,
     style,
@@ -480,6 +518,8 @@ function checkCitation({ raw = "", style = "APA7", fields = {}, doiVerified = fa
     missing: [],
     flags,
     summary,
+    likelyAI,
+    aiSignals,
     parsed: {
       authors: f.authors,
       year: f.year || "",
@@ -493,10 +533,54 @@ function checkCitation({ raw = "", style = "APA7", fields = {}, doiVerified = fa
   };
 }
 
-// Exposed on the global object so the same file works both as a plain browser
-// <script> (double-click index.html, no server needed) and as an ES module
-// imported by tests.mjs under Node.
-const CiteCheckCore = { STYLES, parseAPA, parseMLA, checkCitation };
+function checkReferenceList({ raw = "", style = "APA7", doiVerified = false } = {}) {
+  const lines = String(raw)
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean);
+
+  if (!lines.length) {
+    return {
+      status: "empty",
+      style,
+      styleName: STYLES[style],
+      items: [],
+      summary: "Paste at least one citation.",
+    };
+  }
+
+  const items = lines.map((line) => {
+    const r = checkCitation({ raw: line, style, doiVerified: false });
+    return { input: line, result: r };
+  });
+
+  const allCorrected = items.every((it) => it.result.status === "corrected");
+  const someNeedsVerification = items.some((it) => it.result.status === "needs_verification");
+  const someIncomplete = items.some((it) => it.result.status === "incomplete");
+  const someRefused = items.some((it) => it.result.status === "refused");
+  const someAI = items.some((it) => it.result.likelyAI);
+
+  let status = "corrected";
+  if (someRefused) status = "refused";
+  else if (someIncomplete) status = "incomplete";
+  else if (someNeedsVerification || someAI) status = "needs_verification";
+
+  const summary =
+    items.length === 1
+      ? items[0].result.summary
+      : `${items.length} citation${items.length === 1 ? "" : "s"} checked. ${items.filter((it) => it.result.status === "corrected").length} corrected, ${items.filter((it) => it.result.status === "incomplete").length} need input, ${items.filter((it) => it.result.status === "needs_verification").length} need verification, ${items.filter((it) => it.result.status === "refused").length} refused.`;
+
+  return {
+    status,
+    style,
+    styleName: STYLES[style],
+    items,
+    summary,
+    likelyAI: someAI,
+  };
+}
+
+const CiteCheckCore = { STYLES, parseAPA, parseMLA, checkCitation, checkReferenceList };
 if (typeof globalThis !== "undefined") {
   globalThis.CiteCheckCore = CiteCheckCore;
 }

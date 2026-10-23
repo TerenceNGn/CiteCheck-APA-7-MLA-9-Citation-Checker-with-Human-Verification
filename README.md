@@ -63,21 +63,34 @@ Full demo cases, including the missing-field and refusal paths: see [`docs/TEST_
    - **In the browser (no install needed):** double-click `tests.html`
    - **With Node.js:** `node tests.mjs`
 
+## Reference list mode
+
+Paste several citations, one per line, and the checker processes each one individually. Each result shows its own status, corrected citation, rules applied, and any AI-generated flag. The overall status reflects the worst result across all items.
+
+## AI-generated flag
+
+References with unverifiable DOIs, generic journal names, or no source link are flagged as likely AI-generated or fabricated. Each flagged reference comes with a verification checklist:
+
+1. Confirm the DOI resolves to a real source.
+2. Confirm the journal or publisher exists and matches this article.
+3. Check the authors and title against the original publication.
+
+Treat flagged references as "needs human verification" before submitting.
+
 ## Known limitations
 
 Honest scope — see [`docs/TEST_EVIDENCE.md`](docs/TEST_EVIDENCE.md) for the full list:
 
 - Non-DOI web links are not extracted yet (browser CORS) — the next verifiable step
-- One citation at a time; no reference-list mode
 - APA sentence-casing is a heuristic; proper nouns may need manual review
 - Journal articles and books only; no videos, datasets, or legal sources
 
 ## Roadmap
 
 1. Non-DOI link metadata extraction (needs a small server-side helper to bypass CORS)
-2. "Likely AI-generated" flag with a verification checklist
-3. Small reference-list mode (one citation per line)
-4. Ship the checker as a skill file for agent environments
+2. "Likely AI-generated" flag with a verification checklist — **done**
+3. Small reference-list mode (one citation per line) — **done**
+4. Ship the checker as a skill file for agent environments — **done** (`citecheck.skill.md`)
 
 ## Project structure
 
@@ -88,6 +101,7 @@ index.html / styles.css  single-page interface
 tests.html               run the 8 automated tests in any browser
 tests.mjs                same tests for Node (node tests.mjs)
 start-server.bat/.sh     optional local server
+citecheck.skill.md       agent skill file for chat environments
 docs/                    test evidence + style-rule mapping
 assets/                  screenshot
 ```

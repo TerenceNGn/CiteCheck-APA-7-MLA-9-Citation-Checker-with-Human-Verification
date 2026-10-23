@@ -1,4 +1,4 @@
-const { checkCitation: runCheck } = globalThis.CiteCheckCore;
+const { checkCitation: runCheck, checkReferenceList: runList } = globalThis.CiteCheckCore;
 
 const state = { style: "APA7", busy: false };
 
@@ -27,9 +27,6 @@ function tokenize(text = "") {
   return String(text).trim().split(/\s+/).filter(Boolean);
 }
 
-// Word-level diff between what the user pasted and what the checker produced.
-// Tokens that did not survive into the corrected citation are the errors, so they
-// get the highlighter treatment. Adjacent tokens are merged into one <mark>.
 function highlightErrors(original, corrected) {
   const a = tokenize(original);
   const b = tokenize(corrected);
@@ -114,9 +111,37 @@ function renderRules(rules) {
     </div>`;
 }
 
-function renderResult(r, sourceText = "") {
+function renderFlags(flags) {
+  if (!flags.length) return "";
+  return flags
+    .map(
+      (f) => `
+    <div class="block">
+      <p class="block-title">${f.type === "verified" ? "Source check" : f.type === "ai_flag" ? "AI check" : "Verification"}</p>
+      <div class="notice ${f.type === "verified" ? "ok" : "warn"}"><p>${escapeHtml(f.message)}</p></div>
+      ${f.signals && f.signals.length ? `<p class="empty-state">Signals: ${escapeHtml(f.signals.join(", "))}</p>` : ""}
+    </div>`
+    )
+    .join("");
+}
+
+function renderMissing(missing) {
+  if (!missing.length) return "";
+  return `
+    <div class="block">
+      <p class="block-title">Required fields</p>
+      <div class="notice warn">
+        <p>The tool will not invent or guess this information.</p>
+      </div>
+      <ul class="questions">
+        ${missing.map((m) => `<li>${escapeHtml(m.question)}</li>`).join("")}
+      </ul>
+    </div>`;
+}
+
+function renderSingleResult(r, sourceText = "") {
   if (r.status === "refused") {
-    resultEl.innerHTML = `
+    return `
       <span class="status bad">Refused</span>
       <p class="summary">The request is outside what this checker does.</p>
       <div class="notice bad"><p>${escapeHtml(r.refusal.message)}</p></div>
@@ -124,7 +149,6 @@ function renderResult(r, sourceText = "") {
         <p class="block-title">Scope</p>
         <p class="empty-state">Supported: APA 7 and MLA 9, one citation at a time, formatting checks only.</p>
       </div>`;
-    return;
   }
 
   const view = statusView(r.status);
@@ -155,31 +179,22 @@ function renderResult(r, sourceText = "") {
       </div>`);
   }
 
-  if (r.missing.length) {
+  parts.push(renderMissing(r.missing));
+  parts.push(renderFlags(r.flags));
+
+  if (r.likelyAI) {
     parts.push(`
       <div class="block">
-        <p class="block-title">Required fields</p>
+        <p class="block-title">AI-generated flag · verification checklist</p>
         <div class="notice warn">
-          <p>The tool will not invent or guess this information.</p>
+          <p>This reference shows signs of being AI-generated or fabricated. Before submitting:</p>
+          <ul class="questions">
+            <li>Confirm the DOI resolves to a real source.</li>
+            <li>Confirm the journal or publisher exists and matches this article.</li>
+            <li>Check the authors and title against the original publication.</li>
+          </ul>
         </div>
-        <ul class="questions">
-          ${r.missing.map((m) => `<li>${escapeHtml(m.question)}</li>`).join("")}
-        </ul>
       </div>`);
-  }
-
-  if (r.flags.length) {
-    parts.push(
-      r.flags
-        .map(
-          (f) => `
-        <div class="block">
-          <p class="block-title">${f.type === "verified" ? "Source check" : "Verification"}</p>
-          <div class="notice ${f.type === "verified" ? "ok" : "warn"}"><p>${escapeHtml(f.message)}</p></div>
-        </div>`
-        )
-        .join("")
-    );
   }
 
   parts.push(renderRules(r.rules));
@@ -189,7 +204,81 @@ function renderResult(r, sourceText = "") {
       <p class="empty-state">Formatting only. Confirm the source exists and matches the metadata before submitting.</p>
     </div>`);
 
-  resultEl.innerHTML = parts.join("");
+  return parts.join("");
+}
+
+function renderListResult(listResult) {
+  const parts = [];
+
+  const view = statusView(listResult.status);
+  parts.push(`<span class="status ${view.cls}">${view.label}</span>`);
+  parts.push(`<p class="summary">${escapeHtml(listResult.summary)}</p>`);
+
+  if (listResult.likelyAI) {
+    parts.push(`
+      <div class="block">
+        <p class="block-title">AI-generated flag · verification checklist</p>
+        <div class="notice warn">
+          <p>One or more references show signs of being AI-generated or fabricated. Before submitting:</p>
+          <ul class="questions">
+            <li>Confirm each DOI resolves to a real source.</li>
+            <li>Confirm each journal or publisher exists and matches its article.</li>
+            <li>Check authors and titles against the original publications.</li>
+          </ul>
+        </div>
+      </div>`);
+  }
+
+  for (const item of listResult.items) {
+    const r = item.result;
+    const escapedInput = escapeHtml(item.input);
+    const shortInput = escapedInput.length > 90 ? escapedInput.slice(0, 90) + "\u2026" : escapedInput;
+
+    const view = statusView(r.status);
+    parts.push(`
+      <div class="card list-item">
+        <div class="list-item-head">
+          <span class="status ${view.cls}">${view.label}</span>
+          <span class="list-input">${shortInput}</span>
+        </div>
+        <p class="summary">${escapeHtml(r.summary)}</p>`);
+
+    if (r.status === "incomplete") {
+      parts.push(renderMissing(r.missing));
+    }
+
+    if (r.correctedText) {
+      parts.push(`
+        <div class="block">
+          <p class="block-title">Corrected · ${escapeHtml(r.styleName)}</p>
+          <p class="citation">${r.correctedHtml}</p>
+        </div>`);
+    }
+
+    if (r.flags.length) {
+      parts.push(renderFlags(r.flags));
+    }
+
+    if (r.likelyAI) {
+      parts.push(`
+        <div class="block">
+          <p class="block-title">AI-generated flag · verification checklist</p>
+          <div class="notice warn">
+            <p>Signs of AI generation detected. Verify before submitting:</p>
+            <ul class="questions">
+              <li>Confirm the DOI resolves to a real source.</li>
+              <li>Confirm the journal or publisher exists.</li>
+              <li>Check authors and title against the original publication.</li>
+            </ul>
+          </div>
+        </div>`);
+    }
+
+    parts.push(renderRules(r.rules));
+    parts.push(`</div>`);
+  }
+
+  return parts.join("");
 }
 
 async function resolveDoiLink(text) {
@@ -228,9 +317,11 @@ async function run() {
   checkBtn.textContent = "Checking\u2026";
 
   try {
+    const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+
     const link = await resolveDoiLink(text);
     if (link) {
-      renderResult(
+      resultEl.innerHTML = renderSingleResult(
         runCheck({
           raw: "",
           style: state.style,
@@ -240,6 +331,7 @@ async function run() {
       );
       return;
     }
+
     if (/^https?:\/\//i.test(text)) {
       resultEl.innerHTML = `
         <span class="status warn">Link not supported yet</span>
@@ -249,7 +341,12 @@ async function run() {
         </div>`;
       return;
     }
-    renderResult(runCheck({ raw: text, style: state.style }), text);
+
+    if (lines.length > 1) {
+      resultEl.innerHTML = renderListResult(runList({ raw: text, style: state.style }));
+    } else {
+      resultEl.innerHTML = renderSingleResult(runCheck({ raw: text, style: state.style }), text);
+    }
   } catch (err) {
     resultEl.innerHTML = `
       <span class="status warn">Could not resolve DOI</span>
