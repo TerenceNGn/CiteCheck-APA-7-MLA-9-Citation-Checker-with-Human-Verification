@@ -45,7 +45,6 @@ A DOI link such as `https://doi.org/10.1109/5.771053` resolves through Crossref 
 ## 3. Known limitations
 
 - Non-DOI web links are not extracted (browser CORS); paste the citation instead.
-- One citation at a time; no reference-list mode.
 - APA sentence-casing is a heuristic — proper nouns may be lower-cased wrongly and need review.
 - Only journal articles and books are covered; videos, datasets, and legal sources are not.
 - DOI verification confirms the DOI resolves, not that the source is trustworthy.
