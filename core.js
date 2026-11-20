@@ -2,22 +2,42 @@ const EN_DASH = "\u2013";
 
 const STYLES = { APA7: "APA 7", MLA9: "MLA 9" };
 
-const AI_SUSPICIOUS_JOURNAL_TOKENS = [
-  "journal of",
+const PROPER_NOUNS = new Set([
+  "hong", "kong", "china", "chinese", "beijing", "shanghai", "taipei", "taiwan", "tokyo", "japan",
+  "japanese", "seoul", "korea", "korean", "singapore", "india", "indian", "mumbai", "delhi",
+  "london", "england", "english", "britain", "british", "scotland", "scottish", "wales", "welsh",
+  "ireland", "irish", "paris", "france", "french", "berlin", "germany", "german", "rome", "italy",
+  "italian", "madrid", "spain", "spanish", "moscow", "russia", "russian", "canada", "canadian",
+  "toronto", "vancouver", "australia", "australian", "sydney", "melbourne", "zealand", "africa",
+  "african", "egypt", "egyptian", "brazil", "brazilian", "mexico", "mexican", "america",
+  "american", "york", "washington", "boston", "chicago", "california", "texas", "florida", "new",
+  "january", "february", "march", "april", "may", "june", "july", "august", "september", "october",
+  "november", "december", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday",
+  "sunday", "jan", "feb", "mar", "apr", "jun", "jul", "aug", "sep", "sept", "oct", "nov", "dec",
+]);
+
+const GENERIC_JOURNAL_NAMES = new Set([
+  "journal",
+  "international journal",
   "international journal of",
-  "advances in",
+  "journal of",
+  "proceedings",
   "proceedings of",
+  "proceedings of the",
+  "advances",
+  "advances in",
+  "transactions",
   "transactions on",
+  "reviews",
   "reviews in",
+  "letters",
   "letters in",
-];
+]);
 
 function looksFabricatedJournal(container = "") {
-  const c = container.toLowerCase().trim();
+  const c = container.toLowerCase().trim().replace(/[.:]+$/, "");
   if (!c) return false;
-  const tokenCount = AI_SUSPICIOUS_JOURNAL_TOKENS.some((t) => c.includes(t));
-  const tooGeneric = /^(journal|review|proceedings|advances|transactions)\b/i.test(c) && c.split(/\s+/).length <= 3;
-  return tokenCount || tooGeneric;
+  return GENERIC_JOURNAL_NAMES.has(c);
 }
 
 function aiLikelihood(f, status, doiVerified) {
@@ -83,7 +103,7 @@ function isInitials(given = "") {
 }
 
 function splitDoi(raw) {
-  const re = /(?:https?:\/\/doi\.org\/|doi:\s*)(10\.\d{4,9}\/[^\s,;]+)/i;
+  const re = /(?:https?:\/\/(?:dx\.)?doi\.org\/|doi:\s*)(10\.\d{4,9}\/[^\s,;]+)/i;
   const m = raw.match(re);
   if (!m) return { text: raw, doi: "", doiPrefix: false };
   return {
@@ -285,16 +305,21 @@ function toSentenceCase(text) {
     .split(" ")
     .map((w, i) => {
       if (/^[A-Z]{2,}$/.test(w)) return w;
+      if (/[A-Z]/.test(w.slice(1))) return w;
+      const lower = w.toLowerCase();
       if (i === 0) return w.charAt(0).toUpperCase() + w.slice(1);
-      if (/^[A-Z]/.test(w) && !small.has(w.toLowerCase())) return w.toLowerCase();
+      if (PROPER_NOUNS.has(lower)) return w;
+      if (/^[A-Z]/.test(w) && !small.has(lower)) return lower;
       return w;
     })
     .join(" ");
 }
 
 function looksTitleCase(title = "") {
-  const words = title.split(/\s+/).slice(1).filter((w) => w.length > 3 && /^[A-Z]/.test(w));
-  return words.length >= 2;
+  const words = title.split(/\s+/).slice(1);
+  const longCapitalised = words.filter((w) => w.length > 3 && /^[A-Z]/.test(w)).length;
+  const hasAcronym = words.some((w) => /^[A-Z]{2,}$/.test(w));
+  return longCapitalised >= 2 || (longCapitalised >= 1 && hasAcronym);
 }
 
 function mergeFields(base, extra) {
@@ -336,7 +361,10 @@ function buildAPA(f) {
   if (f.container) {
     segments.push({ t: f.container, i: true });
     let tail = "";
-    if (f.volume) tail += `, ${f.volume}`;
+    if (f.volume) {
+      segments.push({ t: ", " });
+      segments.push({ t: f.volume, i: true });
+    }
     if (f.issue) tail += `(${f.issue})`;
     if (f.pages) tail += `, ${f.pages}`;
     segments.push({ t: `${tail}. ` });
@@ -380,6 +408,13 @@ function refuse(code, message) {
 }
 
 function checkCitation({ raw = "", style = "APA7", fields = {}, doiVerified = false } = {}) {
+  const rawText = String(raw || "");
+  if (rawText.split(/\r?\n/).filter((line) => line.trim()).length > 1) {
+    return refuse(
+      "multiple_entries",
+      "This function checks one citation at a time. Use checkReferenceList for several citations, one per line."
+    );
+  }
   const text = clean(raw);
   const lower = text.toLowerCase();
 
@@ -454,8 +489,11 @@ function checkCitation({ raw = "", style = "APA7", fields = {}, doiVerified = fa
     if (/[A-Z]\.[A-Z]\./.test(rawInfo.authors || "")) fixed.add("APA-A1");
     if (f.year && rawInfo.authors && !rawInfo.yearParen) fixed.add("APA-D1");
     if (looksTitleCase(f.title || "")) {
-      f.title = toSentenceCase(f.title);
-      fixed.add("APA-T1");
+      const sentenceCase = toSentenceCase(f.title);
+      if (sentenceCase !== f.title) {
+        f.title = sentenceCase;
+        fixed.add("APA-T1");
+      }
     }
     if (f._raw?.pages && /-/.test(f._raw.pages)) fixed.add("APA-P1");
     if (f.doiPrefix) fixed.add("APA-DOI1");

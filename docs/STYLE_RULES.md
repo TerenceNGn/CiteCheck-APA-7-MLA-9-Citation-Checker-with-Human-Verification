@@ -14,7 +14,7 @@ If any rule below conflicts with the official guides, the guides win — report 
 |----|------|-------------|
 | APA-A1 | Author names | `Surname, Initials.` — each initial followed by a period and a space (e.g. `Smith, J. A.`); multiple authors separated by commas with `&` before the last |
 | APA-D1 | Year | In parentheses after the authors, followed by a period: `(2020).` |
-| APA-T1 | Article title | Sentence case, no quotation marks, ends with a period |
+| APA-T1 | Article title | Sentence case, no quotation marks, ends with a period; acronyms, internal-capital words, and common proper nouns (for example `Hong Kong`) keep their capitalization |
 | APA-J1 | Journal / volume | Journal title and volume number in *italics*, title case; issue in parentheses, not italic: *Journal of Sleep Research*, 12(3) |
 | APA-P1 | Page range | En dash between first and last page: `45–67` |
 | APA-DOI1 | DOI | Full URL form `https://doi.org/10.xxxx/xxxx`; never the `doi:` prefix |
@@ -32,5 +32,6 @@ If any rule below conflicts with the official guides, the guides win — report 
 
 ## Scope of these rules
 
-Implemented for **journal articles** and **books**. The tool flags, but does not transform,
-anything outside this scope, and it never invents a field it was not given.
+Implemented for **journal articles** and **books**. Other source types are not validated: their
+text is passed through as-is, with no rule reported as failed. The tool never invents a field it was
+not given.

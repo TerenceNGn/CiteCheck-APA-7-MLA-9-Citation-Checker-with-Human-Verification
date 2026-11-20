@@ -282,9 +282,12 @@ function renderListResult(listResult) {
 }
 
 async function resolveDoiLink(text) {
-  const m = text.trim().match(/^https?:\/\/(?:dx\.)?doi\.org\/(10\.\d{4,9}\/\S+)$/i);
+  const value = text.trim();
+  const m =
+    value.match(/^(?:https?:\/\/(?:dx\.)?doi\.org\/|doi:\s*)(10\.\d{4,9}\/\S+)$/i) ||
+    value.match(/^(10\.\d{4,9}\/\S+)$/);
   if (!m) return null;
-  const doi = m[1].replace(/[.,;]+$/, "");
+  const doi = m[1].replace(/[.,;\s]+$/, "");
   const res = await fetch(`https://api.crossref.org/works/${encodeURIComponent(doi)}`, {
     headers: { Accept: "application/json" },
   });
